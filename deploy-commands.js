@@ -26,21 +26,17 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log('🔄 Registering slash commands...');
+    console.log('🔄 Registering GLOBAL slash commands...');
+    console.log('⏳ This will take 1-2 hours to reflect on all servers');
     
+    // ITO ang binago: GLOBAL commands (walang guild ID)
     await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID, 
-        process.env.GUILD_ID
-      ), 
+      Routes.applicationCommands(process.env.CLIENT_ID), 
       { body: commands }
     );
     
-    console.log('✅ Slash commands registered successfully!');
-    console.log('📝 Commands registered:');
-    commands.forEach(cmd => {
-      console.log(`   /${cmd.name} - ${cmd.description}`);
-    });
+    console.log('✅ Global slash commands registered successfully!');
+    console.log('📝 Commands will be available in ALL servers within 1-2 hours');
     
   } catch (error) {
     console.error('❌ Error registering commands:', error);
