@@ -1,65 +1,115 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
+const express = require('express');
 require('dotenv').config();
 
-const client = new Client({ 
+// ========== HTTP SERVER PARA KAY RENDER ==========
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Raid Bot is running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ HTTP server listening on port ${PORT}`);
+});
+
+// ========== DISCORD BOT SETUP ==========
+const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds, 
-    GatewayIntentBits.GuildMessages, 
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
-  ] 
+  ]
 });
 
-client.once('ready', () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  console.log(`🤖 Bot is ready to raid!`);
+// ========== SLASH COMMAND DEFINITION ==========
+const commands = [
+  {
+    name: 'raid',
+    description: 'Mag-spam ng mensahe sa channel na ito',
+    options: [
+      {
+        name: 'message',
+        description: 'Ang mensahe na ipapa-spam',
+        type: 3, // STRING
+        required: true,
+      },
+      {
+        name: 'count',
+        description: 'Bilang ng beses (max 20, default 5)',
+        type: 4, // INTEGER
+        required: false,
+      },
+    ],
+  },
+];
+
+// ========== GLOBAL COMMAND REGISTRATION ==========
+const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+async function registerGlobalCommands() {
+  try {
+    console.log('🔄 Nagre-register ng global slash commands...');
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+    console.log('✅ Global commands registered! Lalabas sa lahat ng server sa loob ng 1-2 oras.');
+  } catch (error) {
+    console.error('❌ Failed to register commands:', error);
+  }
+}
+
+// ========== BOT READY EVENT ==========
+client.once('ready', async () => {
+  console.log(`✅ Naka-login bilang ${client.user.tag}`);
+  await registerGlobalCommands();
 });
 
+// ========== /raid COMMAND HANDLER ==========
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
+  
+  // Siguraduhing /raid command ito
   if (interaction.commandName === 'raid') {
     const message = interaction.options.getString('message');
     const count = interaction.options.getInteger('count') || 5;
 
-    // Limit to prevent abuse
+    // Validation
     if (count > 20) {
       return interaction.reply({ 
-        content: '❌ Maximum spam count is 20.', 
+        content: '❌ Hindi pwedeng lumampas sa 20 ang count.', 
         ephemeral: true 
       });
     }
-
     if (count < 1) {
       return interaction.reply({ 
-        content: '❌ Count must be at least 1.', 
+        content: '❌ Dapat 1 pataas ang count.', 
         ephemeral: true 
       });
     }
 
-    // Acknowledge the command
+    // I-acknowledge ang command
     await interaction.reply({ 
-      content: `🚀 **Raid started!**\n📝 Message: "${message}"\n🔢 Count: ${count}\n⏱️ Please wait...`, 
+      content: `🚀 **Raid started!**\nMensahe: "${message}"\nBilang: ${count}\nMaghintay lamang...`, 
       ephemeral: true 
     });
 
-    // Send spam messages
+    // I-spam ang mensahe
     for (let i = 0; i < count; i++) {
       await interaction.channel.send(message);
-      // Delay to avoid rate limiting
+      // Delay para iwas rate limit
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Optional: Send completion message
+    // Opsyonal na completion message
     await interaction.followUp({ 
-      content: `✅ Raid completed! Sent "${message}" ${count} times.`, 
+      content: `✅ Tapos na! Na-spam ang "${message}" ng ${count} beses.`, 
       ephemeral: true 
     }).catch(() => {});
   }
 });
 
-// Error handling
-process.on('unhandledRejection', error => {
-  console.error('Unhandled promise rejection:', error);
-});
-
+// ========== LOGIN ==========
 client.login(process.env.DISCORD_TOKEN);
